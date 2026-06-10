@@ -50,6 +50,10 @@ function init() {
 
   const group = new THREE.Group();
   scene.add(group);
+  // Eigene Drehgruppe für die Idle-Rotation — getrennt von group.rotation.y,
+  // das die Scroll-Timeline absolut steuert (sonst Sprünge beim Scroll-Start).
+  const spin = new THREE.Group();
+  group.add(spin);
 
   // --- Ringe + Knoten ---
   const rings = [];
@@ -85,7 +89,7 @@ function init() {
 
     ringGroup.rotation.x = Math.PI / 2 - def.tilt;
     ringGroup.rotation.z = i * 0.5;
-    group.add(ringGroup);
+    spin.add(ringGroup);
     rings.push({ g: ringGroup, mat, nodeMat, def });
   });
 
@@ -95,7 +99,7 @@ function init() {
     transparent: true, opacity: 1,
   });
   const core = new THREE.Mesh(new THREE.SphereGeometry(0.16, 24, 24), coreMat);
-  group.add(core);
+  spin.add(core);
 
   // --- Weicher Bodenschatten (Canvas-Sprite, kein echtes Shadow-Mapping nötig) ---
   const shadowCanvas = document.createElement('canvas');
@@ -139,71 +143,98 @@ function init() {
   const idle = { speed: 0.0016 };
 
   // --- Maus-Parallax (nur Desktop) ---
+  // Bewusst nur auf Properties, die die Scroll-Timeline NICHT anfasst
+  // (group.rotation.x + Kamera), sonst kämpfen Tweens gegeneinander.
   if (!isMobile) {
     const rotX = gsap.quickTo(group.rotation, 'x', { duration: 1.2, ease: 'power2.out' });
-    const posY = gsap.quickTo(group.position, 'y', { duration: 1.4, ease: 'power2.out' });
-    const baseY = group.position.y;
+    const camX = gsap.quickTo(camera.position, 'x', { duration: 1.6, ease: 'power2.out' });
     addEventListener('pointermove', (e) => {
       const nx = (e.clientX / innerWidth) - 0.5;
       const ny = (e.clientY / innerHeight) - 0.5;
-      rotX(0.15 + ny * 0.18);
-      posY(baseY - ny * 0.25 + nx * 0.05);
+      rotX(0.15 + ny * 0.16);
+      camX(nx * -0.18);
     }, { passive: true });
   }
 
-  // --- Scroll-Morph-Stationen ---
-  const mb = isMobile;
+  // --- Scroll-Morph: EINE Master-Timeline über die ganze Seite ---
+  // Pro Sektion eine definierte Pose; das Objekt bleibt konsequent in den
+  // Randzonen (nie hinter Textspalten). Eine einzige scrub-Timeline statt
+  // mehrerer Trigger verhindert konkurrierende Tweens (Ruckler/Sprünge).
+  const allMats = [coreMat, ...rings.flatMap(r => [r.mat, r.nodeMat])];
+  const NORMAL = COLORS.map(c => new THREE.Color(c));
+  const LIGHT = [0x93c5fd, 0xa5b4fc, 0xc4b5fd, 0xbfdbfe].map(c => new THREE.Color(c));
+  let master = null;
 
-  // ② Stats + ③ Leistungen: Ringe separieren sich vertikal zu "Modulen"
-  const tlServices = gsap.timeline({
-    scrollTrigger: { trigger: '#zahlen', start: 'top bottom', endTrigger: '#leistungen', end: 'center center', scrub: 0.6 },
-  });
-  rings.forEach((r, i) => {
-    tlServices.to(r.g.position, { y: (i - 1.5) * 1.05, ease: 'none' }, 0);
-    tlServices.to(r.g.rotation, { z: `+=${0.6 + i * 0.2}`, ease: 'none' }, 0);
-  });
-  tlServices.to(group.position, { x: mb ? 0.9 : -2.4, y: mb ? 1.4 : -0.2, ease: 'none' }, 0)
-            .to(group.rotation, { y: 0.5, ease: 'none' }, 0)
-            .to(group.scale, { x: mb ? 0.45 : 0.8, y: mb ? 0.45 : 0.8, z: mb ? 0.45 : 0.8, ease: 'none' }, 0)
-            .to(shadowMat, { opacity: 0.35, ease: 'none' }, 0);
+  // Pose: x/y/scale/rotY, op (Material-Opazität), spread (Ring-Separation),
+  // shadow (Schatten-Opazität), light (helle Farben für dunklen Grund)
+  function poses(mobileNow) {
+    if (mobileNow) {
+      return [
+        { sel: '#top',       x: 1.75, y: 2.35, s: 0.36, rotY: -0.3, op: 0.95, spread: 0,   shadow: 0.55, light: false },
+        { sel: '#zahlen',    x: 1.6,  y: 2.9,  s: 0.30, rotY: 0.3,  op: 0.35, spread: 0.4, shadow: 0,    light: false },
+        { sel: '#leistungen',x: 1.7,  y: 3.1,  s: 0.28, rotY: 0.8,  op: 0.22, spread: 0.5, shadow: 0,    light: false },
+        { sel: '#produkt',   x: 1.8,  y: 3.2,  s: 0.26, rotY: 1.2,  op: 0.15, spread: 0,   shadow: 0,    light: false },
+        { sel: '#person',    x: 1.8,  y: 3.2,  s: 0.26, rotY: 1.6,  op: 0.12, spread: 0,   shadow: 0,    light: false },
+        { sel: '#werdegang', x: 1.6,  y: 3.0,  s: 0.30, rotY: 2.0,  op: 0.18, spread: 0.3, shadow: 0,    light: false },
+        { sel: '#stack',     x: 1.7,  y: 3.1,  s: 0.28, rotY: 2.4,  op: 0.15, spread: 0,   shadow: 0,    light: false },
+        { sel: '#kontakt',   x: 1.2,  y: 2.4,  s: 0.34, rotY: 3.0,  op: 0.55, spread: 0,   shadow: 0,    light: true },
+      ];
+    }
+    return [
+      { sel: '#top',       x: 2.6,  y: 0.1,  s: 1.0,  rotY: -0.3, op: 0.95, spread: 0,   shadow: 0.55, light: false },
+      { sel: '#zahlen',    x: 4.6,  y: -0.4, s: 0.7,  rotY: 0.3,  op: 0.45, spread: 0.5, shadow: 0.2,  light: false },
+      { sel: '#leistungen',x: -4.8, y: -0.6, s: 0.65, rotY: 0.9,  op: 0.30, spread: 0.6, shadow: 0,    light: false },
+      { sel: '#produkt',   x: -5.2, y: 0.2,  s: 0.45, rotY: 1.3,  op: 0.18, spread: 0,   shadow: 0,    light: false },
+      { sel: '#person',    x: 4.9,  y: -2.1, s: 0.55, rotY: 1.7,  op: 0.14, spread: 0,   shadow: 0,    light: false },
+      { sel: '#werdegang', x: 3.5,  y: -0.8, s: 0.75, rotY: 2.1,  op: 0.28, spread: 0.3, shadow: 0.12, light: false },
+      { sel: '#stack',     x: 4.8,  y: -0.5, s: 0.6,  rotY: 2.5,  op: 0.20, spread: 0,   shadow: 0,    light: false },
+      { sel: '#kontakt',   x: 3.3,  y: 0.6,  s: 0.8,  rotY: 3.1,  op: 0.60, spread: 0,   shadow: 0,    light: true },
+    ];
+  }
 
-  // ④ Produkt: Objekt weicht den Screenshots aus (nach links, klein)
-  const tlProduct = gsap.timeline({
-    scrollTrigger: { trigger: '#produkt', start: 'top 80%', end: 'center center', scrub: 0.6 },
-  });
-  rings.forEach((r) => {
-    tlProduct.to(r.g.position, { y: 0, ease: 'none' }, 0);
-  });
-  tlProduct.to(group.position, { x: mb ? 1.2 : -3.4, y: mb ? 2.2 : 0.6, ease: 'none' }, 0)
-           .to(group.scale, { x: 0.5, y: 0.5, z: 0.5, ease: 'none' }, 0)
-           .to([coreMat, ...rings.flatMap(r => [r.mat, r.nodeMat])], { opacity: 0.5, ease: 'none' }, 0)
-           .to(shadowMat, { opacity: 0.12, ease: 'none' }, 0);
+  function buildMaster() {
+    if (master) { master.scrollTrigger && master.scrollTrigger.kill(); master.kill(); }
+    const mobileNow = matchMedia('(max-width: 768px)').matches;
+    const list = poses(mobileNow);
+    const max = Math.max(1, document.documentElement.scrollHeight - innerHeight);
 
-  // ⑤/⑥ Person + Werdegang: dezent zentriert im Hintergrund
-  const tlPerson = gsap.timeline({
-    scrollTrigger: { trigger: '#person', start: 'top 80%', endTrigger: '#werdegang', end: 'center center', scrub: 0.6 },
-  });
-  tlPerson.to(group.position, { x: mb ? 0 : 4.6, y: mb ? 2.6 : -1.8, ease: 'none' }, 0)
-          .to(group.rotation, { y: 1.4, ease: 'none' }, 0)
-          .to([coreMat, ...rings.flatMap(r => [r.mat, r.nodeMat])], { opacity: 0.15, ease: 'none' }, 0)
-          .to(shadowMat, { opacity: 0, ease: 'none' }, 0);
+    master = gsap.timeline({
+      defaults: { ease: 'none' },
+      scrollTrigger: { trigger: document.body, start: 'top top', end: 'bottom bottom', scrub: 1 },
+    });
 
-  // ⑧ Kontakt (dunkler Grund): kompakte helle Endform
-  const LIGHT = [0x93c5fd, 0xa5b4fc, 0xc4b5fd, 0xbfdbfe];
-  const tlContact = gsap.timeline({
-    scrollTrigger: { trigger: '#kontakt', start: 'top 75%', end: 'center center', scrub: 0.6 },
-  });
-  rings.forEach((r, i) => {
-    const c = new THREE.Color(LIGHT[i]);
-    tlContact.to(r.mat.color, { r: c.r, g: c.g, b: c.b, ease: 'none' }, 0);
-    tlContact.to(r.nodeMat.color, { r: c.r, g: c.g, b: c.b, ease: 'none' }, 0);
-    tlContact.to(r.g.rotation, { z: i * 0.5, ease: 'none' }, 0);
-  });
-  const lc = new THREE.Color(0x93c5fd);
-  tlContact.to(coreMat.color, { r: lc.r, g: lc.g, b: lc.b, ease: 'none' }, 0)
-           .to([coreMat, ...rings.flatMap(r => [r.mat, r.nodeMat])], { opacity: 0.6, ease: 'none' }, 0)
-           .to(group.position, { x: mb ? 0.8 : 2.8, y: mb ? 1.8 : 0.2, ease: 'none' }, 0)
-           .to(group.scale, { x: mb ? 0.4 : 0.75, y: mb ? 0.4 : 0.75, z: mb ? 0.4 : 0.75, ease: 'none' }, 0);
+    // Zeitpunkte: Pose i ist erreicht, wenn ihre Sektion den Viewport-Top
+    // erreicht (normalisiert auf 0..1 der Gesamt-Scrollstrecke).
+    let prevT = 0;
+    list.forEach((p, i) => {
+      const el = document.querySelector(p.sel);
+      if (!el) return;
+      const t = Math.min(1, Math.max(0, (el.offsetTop - innerHeight * 0.35) / max));
+      const d = Math.max(0.001, t - prevT);
+      const at = prevT;
+      if (i > 0) {
+        master.to(group.position, { x: p.x, y: p.y, duration: d }, at);
+        master.to(group.scale, { x: p.s, y: p.s, z: p.s, duration: d }, at);
+        master.to(group.rotation, { y: p.rotY, duration: d }, at);
+        master.to(allMats, { opacity: p.op, duration: d }, at);
+        master.to(shadowMat, { opacity: p.shadow, duration: d }, at);
+        rings.forEach((r, ri) => {
+          master.to(r.g.position, { y: (ri - 1.5) * p.spread, duration: d }, at);
+          master.to(r.g.rotation, { z: ri * 0.5 + p.rotY * (0.4 + ri * 0.15), duration: d }, at);
+        });
+        const palette = p.light ? LIGHT : NORMAL;
+        rings.forEach((r, ri) => {
+          const c = palette[ri];
+          master.to(r.mat.color, { r: c.r, g: c.g, b: c.b, duration: d }, at);
+          master.to(r.nodeMat.color, { r: c.r, g: c.g, b: c.b, duration: d }, at);
+        });
+        const cc = p.light ? LIGHT[0] : new THREE.Color(0x2563eb);
+        master.to(coreMat.color, { r: cc.r, g: cc.g, b: cc.b, duration: d }, at);
+      }
+      prevT = t;
+    });
+  }
+  buildMaster();
 
   // --- Render-Loop: pausiert bei verstecktem Tab ---
   let running = true;
@@ -214,7 +245,7 @@ function init() {
 
   function tick() {
     if (!running) return;
-    group.rotation.y += idle.speed;
+    spin.rotation.y += idle.speed;
     renderer.render(scene, camera);
     requestAnimationFrame(tick);
   }
@@ -228,6 +259,7 @@ function init() {
       camera.aspect = innerWidth / innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(innerWidth, innerHeight);
+      buildMaster();
       ScrollTrigger.refresh();
     }, 150);
   }, { passive: true });

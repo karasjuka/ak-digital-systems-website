@@ -648,6 +648,7 @@ main, .site-nav, .site-footer { position: relative; z-index: 1; }
   line-height: 1.7;
   font-style: normal;
 }
+.impressum-block address { margin-bottom: 0.625rem; }
 .impressum-note {
   margin-top: 1.875rem;
   padding-top: 1.5rem;
@@ -691,8 +692,6 @@ main, .site-nav, .site-footer { position: relative; z-index: 1; }
   .stack-grid { grid-template-columns: repeat(2, 1fr); }
 
   .contact-grid { grid-template-columns: repeat(3, 1fr); }
-
-  .impressum-grid { grid-template-columns: repeat(3, 1fr); }
 
   .footer-inner { flex-direction: row; justify-content: space-between; text-align: left; }
 }

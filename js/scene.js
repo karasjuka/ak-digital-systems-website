@@ -117,8 +117,8 @@ function init() {
   // --- Grundposition: rechts neben dem Hero-Text (mobil: oben rechts, kleiner) ---
   function basePose() {
     if (matchMedia('(max-width: 768px)').matches) {
-      group.position.set(1.1, 1.7, 0);
-      group.scale.setScalar(0.52);
+      group.position.set(1.75, 2.35, 0);
+      group.scale.setScalar(0.36);
     } else {
       group.position.set(2.6, 0.1, 0);
       group.scale.setScalar(1);
@@ -130,8 +130,10 @@ function init() {
   // --- Reduced Motion: genau ein Frame, fertig ---
   if (reduced) {
     renderer.render(scene, camera);
+    canvas.classList.add('ready');
     return;
   }
+  canvas.classList.add('ready');
 
   // --- Idle-Rotation ---
   const idle = { speed: 0.0016 };
@@ -181,9 +183,9 @@ function init() {
   const tlPerson = gsap.timeline({
     scrollTrigger: { trigger: '#person', start: 'top 80%', endTrigger: '#werdegang', end: 'center center', scrub: 0.6 },
   });
-  tlPerson.to(group.position, { x: mb ? 0 : 3.2, y: mb ? 2.6 : -0.4, ease: 'none' }, 0)
+  tlPerson.to(group.position, { x: mb ? 0 : 4.6, y: mb ? 2.6 : -1.8, ease: 'none' }, 0)
           .to(group.rotation, { y: 1.4, ease: 'none' }, 0)
-          .to([coreMat, ...rings.flatMap(r => [r.mat, r.nodeMat])], { opacity: 0.22, ease: 'none' }, 0)
+          .to([coreMat, ...rings.flatMap(r => [r.mat, r.nodeMat])], { opacity: 0.15, ease: 'none' }, 0)
           .to(shadowMat, { opacity: 0, ease: 'none' }, 0);
 
   // ⑧ Kontakt (dunkler Grund): kompakte helle Endform

@@ -17,6 +17,12 @@
   addEventListener('scroll', onScroll, { passive: true });
   onScroll();
 
+  // 3D-Szene erst nach dem load-Event laden — sie ist Dekoration und soll
+  // weder First Paint noch LCP ausbremsen (Three.js ≈ 750 KB).
+  function loadScene() { import('./scene.js'); }
+  if (document.readyState === 'complete') loadScene();
+  else addEventListener('load', loadScene);
+
   var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (reduced || typeof gsap === 'undefined') return;
 

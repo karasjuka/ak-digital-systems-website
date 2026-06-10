@@ -595,70 +595,81 @@ main, .site-nav, .site-footer { position: relative; z-index: 1; }
 }
 .stack-pills li:hover { border-color: var(--primary); color: var(--primary); }
 
-/* ---------- ⑧ Kontakt + Impressum ---------- */
-.contact-grid {
+/* ---------- ⑧ Kontakt + Impressum (nebeneinander) ---------- */
+.contact-layout {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 2rem;
-  margin-bottom: clamp(3rem, 7vw, 4.5rem);
+  gap: 3rem;
+  align-items: start;
 }
 
-.contact-item h3 {
-  font-size: 0.75rem;
+.contact-main .section-header { margin-bottom: 2rem; }
+
+.contact-cta {
+  font-size: clamp(0.875rem, 3.9vw, 1.1875rem);
+  padding: 1.0625rem clamp(1rem, 4vw, 1.875rem);
+  border-radius: 14px;
+  overflow-wrap: anywhere;
+}
+
+.contact-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem 1.75rem;
+  margin-top: 1.5rem;
+}
+.contact-links a {
+  font-size: 0.9rem;
   font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
   color: var(--dark-dim);
-  margin-bottom: 0.4375rem;
 }
-.contact-item p, .contact-item address {
-  font-size: 0.95rem;
-  font-style: normal;
-  color: var(--dark-ink);
-  line-height: 1.7;
-}
+.contact-links a:hover { color: #fff; }
 
 .impressum {
-  border-top: 1px solid var(--dark-line);
-  padding-top: clamp(2.5rem, 5vw, 3.5rem);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--dark-line);
+  border-radius: var(--radius-lg);
+  padding: 1.875rem;
 }
 .impressum h2 {
-  font-size: 1.25rem;
+  font-size: 1.0625rem;
   font-weight: 700;
   color: #fff;
-  margin-bottom: 1.75rem;
+  margin-bottom: 1.25rem;
 }
-.impressum-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.75rem;
-}
-.impressum-block h3 {
-  font-size: 0.75rem;
+.impressum h3 {
+  font-size: 0.71rem;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--dark-dim);
-  margin-bottom: 0.5625rem;
+  margin-bottom: 0.625rem;
+  line-height: 1.6;
 }
-.impressum-block p, .impressum-block address {
+.impressum address, .impressum .impressum-mail {
   font-size: 0.875rem;
   color: var(--dark-ink);
   opacity: 0.85;
   line-height: 1.7;
   font-style: normal;
 }
-.impressum-block address { margin-bottom: 0.625rem; }
+.impressum address { margin-bottom: 0.625rem; }
 .impressum-note {
-  margin-top: 1.875rem;
-  padding-top: 1.5rem;
+  margin-top: 1.25rem;
+  padding-top: 1.125rem;
   border-top: 1px solid var(--dark-line);
   font-size: 0.8125rem;
   color: var(--dark-dim);
   line-height: 1.7;
-  max-width: 860px;
 }
-.impressum-note strong { color: var(--dark-ink); }
+.impressum-note summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--dark-ink);
+  opacity: 0.85;
+}
+.impressum-note summary:hover { opacity: 1; }
+.impressum-note p { margin-top: 0.75rem; }
 
 /* ---------- Footer ---------- */
 .site-footer {
@@ -691,14 +702,13 @@ main, .site-nav, .site-footer { position: relative; z-index: 1; }
 
   .stack-grid { grid-template-columns: repeat(2, 1fr); }
 
-  .contact-grid { grid-template-columns: repeat(3, 1fr); }
-
   .footer-inner { flex-direction: row; justify-content: space-between; text-align: left; }
 }
 
 @media (min-width: 1024px) {
   .product-card { grid-template-columns: 1.15fr 0.85fr; }
   .product-visual { min-height: 420px; }
+  .contact-layout { grid-template-columns: 1.1fr 0.9fr; gap: 4.5rem; }
 }
 
 /* ============================================================

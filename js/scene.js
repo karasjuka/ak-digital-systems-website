@@ -182,8 +182,8 @@ function init() {
     }
     return [
       { sel: '#top',       x: 2.6,  y: 0.1,  s: 1.0,  rotY: -0.3, op: 0.95, spread: 0,   shadow: 0.55, light: false },
-      { sel: '#zahlen',    x: 4.6,  y: -0.4, s: 0.7,  rotY: 0.3,  op: 0.45, spread: 0.5, shadow: 0.2,  light: false },
-      { sel: '#leistungen',x: -4.8, y: -0.6, s: 0.65, rotY: 0.9,  op: 0.30, spread: 0.6, shadow: 0,    light: false },
+      { sel: '#zahlen',    x: 4.4,  y: -0.3, s: 0.72, rotY: 0.3,  op: 0.45, spread: 0.35, shadow: 0.2, light: false },
+      { sel: '#leistungen',x: 4.5,  y: -0.7, s: 0.68, rotY: 0.9,  op: 0.35, spread: 0.55, shadow: 0.1, light: false },
       { sel: '#produkt',   x: -5.2, y: 0.2,  s: 0.45, rotY: 1.3,  op: 0.18, spread: 0,   shadow: 0,    light: false },
       { sel: '#person',    x: 4.9,  y: -2.1, s: 0.55, rotY: 1.7,  op: 0.14, spread: 0,   shadow: 0,    light: false },
       { sel: '#werdegang', x: 3.5,  y: -0.8, s: 0.75, rotY: 2.1,  op: 0.28, spread: 0.3, shadow: 0.12, light: false },
@@ -206,6 +206,7 @@ function init() {
     // Zeitpunkte: Pose i ist erreicht, wenn ihre Sektion den Viewport-Top
     // erreicht (normalisiert auf 0..1 der Gesamt-Scrollstrecke).
     let prevT = 0;
+    let prevPose = list[0];
     list.forEach((p, i) => {
       const el = document.querySelector(p.sel);
       if (!el) return;
@@ -213,11 +214,24 @@ function init() {
       const d = Math.max(0.001, t - prevT);
       const at = prevT;
       if (i > 0) {
-        master.to(group.position, { x: p.x, y: p.y, duration: d }, at);
+        // Seitenwechsel (links <-> rechts) nie sichtbar quer durchs Bild:
+        // erst ausblenden, unsichtbar rüberschieben, drüben einblenden.
+        const sideSwitch = Math.sign(prevPose.x) !== Math.sign(p.x);
+        if (sideSwitch) {
+          const h = d / 2;
+          master.to(allMats, { opacity: 0, duration: h }, at);
+          master.to(shadowMat, { opacity: 0, duration: h }, at);
+          master.to(group.position, { x: prevPose.x, y: prevPose.y, duration: h }, at);
+          master.set(group.position, { x: p.x, y: p.y }, at + h);
+          master.to(allMats, { opacity: p.op, duration: h }, at + h);
+          master.to(shadowMat, { opacity: p.shadow, duration: h }, at + h);
+        } else {
+          master.to(group.position, { x: p.x, y: p.y, duration: d }, at);
+          master.to(allMats, { opacity: p.op, duration: d }, at);
+          master.to(shadowMat, { opacity: p.shadow, duration: d }, at);
+        }
         master.to(group.scale, { x: p.s, y: p.s, z: p.s, duration: d }, at);
         master.to(group.rotation, { y: p.rotY, duration: d }, at);
-        master.to(allMats, { opacity: p.op, duration: d }, at);
-        master.to(shadowMat, { opacity: p.shadow, duration: d }, at);
         rings.forEach((r, ri) => {
           master.to(r.g.position, { y: (ri - 1.5) * p.spread, duration: d }, at);
           master.to(r.g.rotation, { z: ri * 0.5 + p.rotY * (0.4 + ri * 0.15), duration: d }, at);
@@ -232,6 +246,7 @@ function init() {
         master.to(coreMat.color, { r: cc.r, g: cc.g, b: cc.b, duration: d }, at);
       }
       prevT = t;
+      prevPose = p;
     });
   }
   buildMaster();
